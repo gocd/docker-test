@@ -1,0 +1,6 @@
+[submodule "docker-gocd-server"]
+	path = docker-gocd-server
+	url = https://github.com/gocd/docker-gocd-server
+[submodule "docker-gocd-agent"]
+	path = docker-gocd-agent
+	url = https://github.com/gocd/docker-gocd-agent
