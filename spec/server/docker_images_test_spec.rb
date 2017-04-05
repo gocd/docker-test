@@ -50,15 +50,15 @@ describe :server do
 
   describe 'port mapping and volume mounts' do
     before :all do
-      FileUtils.cp_r 'spec/server/local', '/tmp'
+      FileUtils.cp_r 'spec/server/local', './tmp'
       @container = Docker::Container.create('Image' => 'docker-gocd-server-test')
-      @container.start({'Binds' => ['/tmp/local:/godata:rw'], 'PortBindings' => {'8153/tcp' => [{'HostPort' => '8253'}], '8154/tcp' => [{'HostPort' => '8254'}]}})
+      @container.start({'Binds' => ["#{File.expand_path('./tmp')}:/godata:rw"], 'PortBindings' => {'8153/tcp' => [{'HostPort' => '8253'}], '8154/tcp' => [{'HostPort' => '8254'}]}})
     end
 
     after :all do
       @container.stop
       @container.delete
-      FileUtils.rm_rf('/tmp/local')
+      FileUtils.rm_rf('./tmp')
     end
 
     it 'should make the go-server available on host\'s 8253 port' do
@@ -79,7 +79,7 @@ describe :server do
     end
 
     it 'should provide access to the config and data directories on the host machine' do
-      expect(Dir.entries('/tmp/local')).to include(*['addons', 'config', 'db', 'logs', 'plugins', 'artifacts'])
+      expect(Dir.entries('./tmp')).to include(*['addons', 'config', 'db', 'logs', 'plugins', 'artifacts'])
     end
   end
 
@@ -104,9 +104,9 @@ end
 
 describe :functionality do
   before :all do
-    FileUtils.cp_r 'spec/server/local', '/tmp'
+    FileUtils.cp_r 'spec/server/local', './tmp'
     @server_container = Docker::Container.create('Image' => 'docker-gocd-server-test')
-    @server_container.start({'Binds' => ['/tmp/local:/godata:rw'], 'PortBindings' => {'8153/tcp' => [{'HostPort' => '8253'}], '8154/tcp' => [{'HostPort' => '8254'}]}})
+    @server_container.start({'Binds' => ["#{File.expand_path('./tmp')}:/godata:rw"], 'PortBindings' => {'8153/tcp' => [{'HostPort' => '8253'}], '8154/tcp' => [{'HostPort' => '8254'}]}})
     server_ip = @server_container.json['NetworkSettings']['IPAddress']
     go_server_url = "https://#{server_ip}:8154/go"
 
@@ -131,7 +131,7 @@ describe :functionality do
     end
     @server_container.stop
     @server_container.delete
-    FileUtils.rm_rf('/tmp/local')
+    FileUtils.rm_rf('./tmp')
   end
 
   it 'should run the build on all agents' do
