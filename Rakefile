@@ -1,6 +1,6 @@
 require 'rspec/core/rake_task'
 
-desc 'Run Chefspec tests (spec/*_spec.rb)'
+desc 'Run Rspec tests (spec/*_spec.rb)'
 RSpec::Core::RakeTask.new(:unit) do |t|
   t.pattern = 'spec/**/*_spec.rb'
   t.rspec_opts = [].tap do |a|
