@@ -153,8 +153,15 @@ describe :functionality do
       result = JSON.parse(response)["result"]
       raise RestClient::Exception unless result.eql?('Passed')
     }
+  end
 
+  it 'should list the plugins provided by user' do
+    response = RestClient.get 'http://0.0.0.0:8253/go/api/admin/plugin_info', {'Accept' => 'application/vnd.go.cd.v2+json'}
+    plugin_infos = JSON.parse(response)["_embedded"]["plugin_info"]
 
+    plugin_ids = plugin_infos.map() {|plugin_info| plugin_info["id"]}
+
+    expect(plugin_ids).to include(*['github.pr'])
   end
 
   def verify_go_server_is_up
