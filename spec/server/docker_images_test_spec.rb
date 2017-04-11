@@ -58,6 +58,7 @@ describe :server do
       FileUtils.cp_r 'spec/server/local', './tmp'
       @container = Docker::Container.create('Image' => @server_image)
       @container.start({'Binds' => ["#{File.expand_path('./tmp')}:/godata:rw"], 'PortBindings' => {'8153/tcp' => [{'HostPort' => '8253'}], '8154/tcp' => [{'HostPort' => '8254'}]}})
+      verify_go_server_is_up
     end
 
     after :all do
@@ -68,7 +69,7 @@ describe :server do
 
     it 'should make the go-server available on host\'s 8253 port' do
       response = ''
-      with_retries(max_tries: 10, base_sleep_seconds: 10, max_sleep_seconds: 10) {
+      with_retries(max_tries: 10, base_sleep_seconds: 10, max_sleep_seconds: 10, handler: retry_handler) {
         response = RestClient.get 'http://0.0.0.0:8253/go'
       }
       expect(response.code).to eq(200)
@@ -76,7 +77,7 @@ describe :server do
 
     it 'should start the go-server with given configuration' do
       response = ''
-      with_retries(max_tries: 10, base_sleep_seconds: 10, max_sleep_seconds: 10) {
+      with_retries(max_tries: 10, base_sleep_seconds: 10, max_sleep_seconds: 10, handler: retry_handler) {
         response = RestClient.get('http://0.0.0.0:8253/go/api/admin/pipelines/up42', {'Accept' => 'application/vnd.go.cd.v3+json'})
       }
 
@@ -92,6 +93,7 @@ describe :server do
     before :all do
       @container = Docker::Container.create('Image' => @server_image, 'HostConfig' => {'PortBindings' => {'8153/tcp' => [{'HostPort' => '8253'}], '8154/tcp' => [{'HostPort' => '8254'}]}}, 'Env' => ['SERVER_MEM=1g', 'SERVER_MAX_MEM=2g'])
       @container.start
+      verify_go_server_is_up
     end
 
     after :all do
@@ -155,7 +157,7 @@ describe :functionality do
     expect(response.code).to eq(202)
 
 
-    with_retries(max_tries: 15, base_sleep_seconds: 20, max_sleep_seconds: 20, handler: retry_handler, rescue: RestClient::Exception) {
+    with_retries(max_tries: 25, base_sleep_seconds: 20, max_sleep_seconds: 20, handler: retry_handler, rescue: RestClient::Exception) {
       response = RestClient.get 'http://0.0.0.0:8253/go/api/stages/new_pipeline/stage1/instance/1/1'
       result = JSON.parse(response)["result"]
       raise RestClient::Exception unless result.eql?('Passed')
@@ -171,24 +173,12 @@ describe :functionality do
     expect(plugin_ids).to include(*['github.pr'])
   end
 
-  def verify_go_server_is_up
-    with_retries(max_tries: 10, base_sleep_seconds: 10, max_sleep_seconds: 10) {
-      RestClient.get 'http://0.0.0.0:8253/go'
-    }
-  end
-
   def verify_go_agents_are_up
-    with_retries(max_tries: 10, base_sleep_seconds: 10, max_sleep_seconds: 10, handler: retry_handler, rescue: RestClient::Exception) {
+    with_retries(max_tries: 20, base_sleep_seconds: 10, max_sleep_seconds: 20, handler: retry_handler, rescue: RestClient::Exception) {
       response = RestClient.get 'http://0.0.0.0:8253/go/api/agents', {'Accept' => 'application/vnd.go.cd.v4+json'}
       agents = JSON.parse(response)["_embedded"]["agents"]
       raise RestClient::Exception unless agents.size == 8
     }
-  end
-
-  def retry_handler
-    Proc.new do |exception, attempt_number, total_delay|
-      puts "Handler saw a #{exception.class}; retry attempt #{attempt_number}; #{total_delay} seconds have passed."
-    end
   end
 
   def pipeline_configuration
@@ -310,5 +300,16 @@ describe :functionality do
         }
     }
   end
+end
 
+def verify_go_server_is_up
+  with_retries(max_tries: 20, base_sleep_seconds: 10, max_sleep_seconds: 20, handler: retry_handler) {
+    RestClient.get 'http://0.0.0.0:8253/go'
+  }
+end
+
+def retry_handler
+  Proc.new do |exception, attempt_number, total_delay|
+    puts "Handler saw a #{exception.class}; retry attempt #{attempt_number}; #{total_delay} seconds have passed."
+  end
 end
