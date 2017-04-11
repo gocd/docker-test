@@ -21,9 +21,14 @@ require 'rest-client'
 require 'retries'
 
 describe :server do
+  before :all do
+    all_images = Docker::Image.all
+    @server_image = all_images.select {|i| i.info['RepoTags'].to_s.include? "gocd-server"}[0].id
+  end
+
   describe 'config' do
     before :all do
-      @container = Docker::Container.create('Image' => 'docker-gocd-server-test')
+      @container = Docker::Container.create('Image' => @server_image)
       @container.start
     end
 
@@ -51,7 +56,7 @@ describe :server do
   describe 'port mapping and volume mounts' do
     before :all do
       FileUtils.cp_r 'spec/server/local', './tmp'
-      @container = Docker::Container.create('Image' => 'docker-gocd-server-test')
+      @container = Docker::Container.create('Image' => @server_image)
       @container.start({'Binds' => ["#{File.expand_path('./tmp')}:/godata:rw"], 'PortBindings' => {'8153/tcp' => [{'HostPort' => '8253'}], '8154/tcp' => [{'HostPort' => '8254'}]}})
     end
 
@@ -85,7 +90,7 @@ describe :server do
 
   describe 'environment variables' do
     before :all do
-      @container = Docker::Container.create('Image' => 'docker-gocd-server-test', 'HostConfig' => {'PortBindings' => {'8153/tcp' => [{'HostPort' => '8253'}], '8154/tcp' => [{'HostPort' => '8254'}]}}, 'Env' => ['SERVER_MEM=1g', 'SERVER_MAX_MEM=2g'])
+      @container = Docker::Container.create('Image' => @server_image, 'HostConfig' => {'PortBindings' => {'8153/tcp' => [{'HostPort' => '8253'}], '8154/tcp' => [{'HostPort' => '8254'}]}}, 'Env' => ['SERVER_MEM=1g', 'SERVER_MAX_MEM=2g'])
       @container.start
     end
 
@@ -104,16 +109,18 @@ end
 
 describe :functionality do
   before :all do
+    all_images = Docker::Image.all
+    server_image = all_images.select { |i| i.info['RepoTags'].to_s.include? "gocd-server" }[0].id
+    agent_images = all_images.select { |i| i.info['RepoTags'].to_s.include? "gocd-agent" }
     FileUtils.cp_r 'spec/server/local', './tmp'
-    @server_container = Docker::Container.create('Image' => 'docker-gocd-server-test')
+
+    @server_container = Docker::Container.create('Image' => server_image)
     @server_container.start({'Binds' => ["#{File.expand_path('./tmp')}:/godata:rw"], 'PortBindings' => {'8153/tcp' => [{'HostPort' => '8253'}], '8154/tcp' => [{'HostPort' => '8254'}]}})
     server_ip = @server_container.json['NetworkSettings']['IPAddress']
     go_server_url = "https://#{server_ip}:8154/go"
 
     @containers = []
-    all_images = Docker::Image.all
-    images = all_images.select {|i| i.info['RepoTags'].to_s.include? "gocd-agent"}
-    images.each_with_index do |image, index|
+    agent_images.each_with_index do |image, index|
       @containers << Docker::Container.create('Image' => image.id, 'Env' => ["GO_SERVER_URL=#{go_server_url}", "AGENT_AUTO_REGISTER_KEY=041b5c7e-dab2-11e5-a908-13f95f3c6ef6", "AGENT_AUTO_REGISTER_HOSTNAME=host-#{index}", "AGENT_AUTO_REGISTER_RESOURCES=foo#{index}"])
     end
     @containers.each do |container|
