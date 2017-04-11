@@ -32,4 +32,12 @@ task :clean do
   sh('docker rmi $(docker images -q)')
 end
 
-task :default => [:pull_down_images, :unit, :clean]
+task :default => [:pull_down_images] do
+  begin
+    Rake::Task['unit'].invoke
+  rescue
+    # do nothing
+  ensure
+    Rake::Task['clean'].invoke
+  end
+end
