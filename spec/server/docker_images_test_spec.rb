@@ -64,7 +64,7 @@ describe :server do
     after :all do
       @container.stop
       @container.delete
-      FileUtils.rm_rf('./tmp')
+      p 'Failed to cleanup tmp directory' unless system('sudo rm -rf ./tmp')
     end
 
     it 'should make the go-server available on host\'s 8253 port' do
@@ -140,7 +140,7 @@ describe :functionality do
     end
     @server_container.stop
     @server_container.delete
-    FileUtils.rm_rf('./tmp')
+    p 'Failed to cleanup tmp directory' unless system('sudo rm -rf ./tmp')
   end
 
   it 'should run the build on all agents' do
