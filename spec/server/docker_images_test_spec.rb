@@ -56,6 +56,7 @@ describe :server do
   describe 'port mapping and volume mounts' do
     before :all do
       FileUtils.cp_r 'spec/server/local', './tmp'
+      fail 'Failed to chown to UID 1000' unless system('sudo chown -R 1000:1000 ./tmp/*')
       @container = Docker::Container.create('Image' => @server_image)
       @container.start({'Binds' => ["#{File.expand_path('./tmp')}:/godata:rw"], 'PortBindings' => {'8153/tcp' => [{'HostPort' => '8253'}], '8154/tcp' => [{'HostPort' => '8254'}]}})
       verify_go_server_is_up
@@ -64,7 +65,7 @@ describe :server do
     after :all do
       @container.stop
       @container.delete
-      p 'Failed to cleanup tmp directory' unless system('sudo rm -rf ./tmp')
+      fail 'Failed to cleanup tmp directory' unless system('sudo rm -rf ./tmp')
     end
 
     it 'should make the go-server available on host\'s 8253 port' do
@@ -115,6 +116,7 @@ describe :functionality do
     server_image = all_images.select { |i| i.info['RepoTags'].to_s.include? "gocd-server" }[0].id
     agent_images = all_images.select { |i| i.info['RepoTags'].to_s.include? "gocd-agent" }
     FileUtils.cp_r 'spec/server/local', './tmp'
+    fail 'Failed to chown to UID 1000' unless system('sudo chown -R 1000:1000 ./tmp/*')
 
     @server_container = Docker::Container.create('Image' => server_image)
     @server_container.start({'Binds' => ["#{File.expand_path('./tmp')}:/godata:rw"], 'PortBindings' => {'8153/tcp' => [{'HostPort' => '8253'}], '8154/tcp' => [{'HostPort' => '8254'}]}})
@@ -140,7 +142,7 @@ describe :functionality do
     end
     @server_container.stop
     @server_container.delete
-    p 'Failed to cleanup tmp directory' unless system('sudo rm -rf ./tmp')
+    fail 'Failed to cleanup tmp directory' unless system('sudo rm -rf ./tmp')
   end
 
   it 'should run the build on all agents' do
