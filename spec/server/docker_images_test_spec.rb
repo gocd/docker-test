@@ -105,7 +105,9 @@ describe :server do
     it 'should pass along the env vars to the go-server process if they are the recognized by go server' do
       response = @container.top
 
-      expect(response[1]['COMMAND']).to include('-Xms1g -Xmx2g')
+      # response[x]['CMD']works only on linux, response[x]['COMMAND'] works on mac
+      command = response[1]['CMD'] ? response[1]['CMD'] : response[1]['COMMAND']
+      expect(command).to include('-Xms1g -Xmx2g')
     end
   end
 end
