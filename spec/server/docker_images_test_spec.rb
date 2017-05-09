@@ -56,7 +56,9 @@ describe :server do
   describe 'port mapping and volume mounts' do
     before :all do
       FileUtils.cp_r 'spec/server/local', './tmp'
-      fail 'Failed to chown to UID 1000' unless system('sudo chown -R 1000:1000 ./tmp/*')
+      if File.exist?('/etc/os-release')
+        fail 'Failed to chown to UID 1000' unless system('sudo chown -R 1000:1000 ./tmp/*')
+      end
       @container = Docker::Container.create('Image' => @server_image)
       @container.start({'Binds' => ["#{File.expand_path('./tmp')}:/godata:rw"], 'PortBindings' => {'8153/tcp' => [{'HostPort' => '8253'}], '8154/tcp' => [{'HostPort' => '8254'}]}})
       verify_go_server_is_up
@@ -114,75 +116,71 @@ end
 
 describe :functionality do
   before :all do
-    all_images = Docker::Image.all
-    server_image = all_images.select { |i| i.info['RepoTags'].to_s.include? "gocd-server" }[0].id
-    agent_images = all_images.select { |i| i.info['RepoTags'].to_s.include? "gocd-agent" }
+    @all_images = Docker::Image.all
+    server_image = @all_images.select { |i| i.info['RepoTags'].to_s.include? "gocd-server" }[0].id
     FileUtils.cp_r 'spec/server/local', './tmp'
-    fail 'Failed to chown to UID 1000' unless system('sudo chown -R 1000:1000 ./tmp/*')
+    if File.exist?('/etc/os-release')
+      fail 'Failed to chown to UID 1000' unless system('sudo chown -R 1000:1000 ./tmp/*')
+    end
 
     @server_container = Docker::Container.create('Image' => server_image)
     @server_container.start({'Binds' => ["#{File.expand_path('./tmp')}:/godata:rw"], 'PortBindings' => {'8153/tcp' => [{'HostPort' => '8253'}], '8154/tcp' => [{'HostPort' => '8254'}]}})
     server_ip = @server_container.json['NetworkSettings']['IPAddress']
-    go_server_url = "https://#{server_ip}:8154/go"
-
-    @containers = []
-    agent_images.each_with_index do |image, index|
-      @containers << Docker::Container.create('Image' => image.id, 'Env' => ["GO_SERVER_URL=#{go_server_url}", "AGENT_AUTO_REGISTER_KEY=041b5c7e-dab2-11e5-a908-13f95f3c6ef6", "AGENT_AUTO_REGISTER_HOSTNAME=host-#{index}", "AGENT_AUTO_REGISTER_RESOURCES=foo#{index}"])
-    end
-    @containers.each do |container|
-      container.start
-    end
-
+    @go_server_url = "https://#{server_ip}:8154/go"
     verify_go_server_is_up
-    verify_go_agents_are_up
   end
 
   after :all do
-    @containers.each do |container|
-      container.stop
-      container.delete
-    end
     @server_container.stop
     @server_container.delete
     fail 'Failed to cleanup tmp directory' unless system('sudo rm -rf ./tmp')
   end
 
-  it 'should run the build on all agents' do
-    headers={accept: 'application/vnd.go.cd.v3+json', content_type: 'application/json'}
-    data = pipeline_configuration
-    response = RestClient.post('http://0.0.0.0:8253/go/api/admin/pipelines', data.to_json, headers)
+  describe 'user provided plugins' do
+    it 'should list the plugins provided by user' do
+      response = RestClient.get 'http://0.0.0.0:8253/go/api/admin/plugin_info', {'Accept' => 'application/vnd.go.cd.v2+json'}
+      plugin_infos = JSON.parse(response)["_embedded"]["plugin_info"]
 
-    expect(response.code).to eq(200)
+      plugin_ids = plugin_infos.map() { |plugin_info| plugin_info["id"] }
 
-    response = RestClient.post('http://0.0.0.0:8253/go/api/pipelines/new_pipeline/unpause', {}, {'Confirm' => true})
-    expect(response.code).to eq(200)
-
-    response = RestClient.post('http://0.0.0.0:8253/go/api/pipelines/new_pipeline/schedule', {}, {'Confirm' => true})
-    expect(response.code).to eq(202)
-
-
-    with_retries(max_tries: 25, base_sleep_seconds: 20, max_sleep_seconds: 20, handler: retry_handler, rescue: RestClient::Exception) {
-      response = RestClient.get 'http://0.0.0.0:8253/go/api/stages/new_pipeline/stage1/instance/1/1'
-      result = JSON.parse(response)["result"]
-      raise RestClient::Exception unless result.eql?('Passed')
-    }
+      expect(plugin_ids).to include(*['github.pr'])
+    end
   end
 
-  it 'should list the plugins provided by user' do
-    response = RestClient.get 'http://0.0.0.0:8253/go/api/admin/plugin_info', {'Accept' => 'application/vnd.go.cd.v2+json'}
-    plugin_infos = JSON.parse(response)["_embedded"]["plugin_info"]
+  describe 'work assignment and completion' do
+    before :all do
+      headers={accept: 'application/vnd.go.cd.v3+json', content_type: 'application/json'}
+      data = pipeline_configuration
+      response = RestClient.post('http://0.0.0.0:8253/go/api/admin/pipelines', data.to_json, headers)
 
-    plugin_ids = plugin_infos.map() {|plugin_info| plugin_info["id"]}
+      expect(response.code).to eq(200)
 
-    expect(plugin_ids).to include(*['github.pr'])
-  end
+      agent_images = @all_images.select { |i| i.info['RepoTags'].to_s.include? "gocd-agent" }
+      @containers = []
+      agent_images.each_with_index do |image, index|
+        @containers << Docker::Container.create('Image' => image.id, 'Env' => ["GO_SERVER_URL=#{@go_server_url}", "AGENT_AUTO_REGISTER_KEY=041b5c7e-dab2-11e5-a908-13f95f3c6ef6", "AGENT_AUTO_REGISTER_HOSTNAME=host-#{index}"])
+      end
+    end
 
-  def verify_go_agents_are_up
-    with_retries(max_tries: 20, base_sleep_seconds: 10, max_sleep_seconds: 20, handler: retry_handler, rescue: RestClient::Exception) {
-      response = RestClient.get 'http://0.0.0.0:8253/go/api/agents', {'Accept' => 'application/vnd.go.cd.v4+json'}
-      agents = JSON.parse(response)["_embedded"]["agents"]
-      raise RestClient::Exception unless agents.size == 8
-    }
+    it 'should run the build on all agents' do
+      @containers.each_with_index do |container, index|
+        container.start
+        response = RestClient.post('http://0.0.0.0:8253/go/api/pipelines/new_pipeline/unpause', {}, {'Confirm' => true})
+        expect(response.code).to eq(200)
+
+        response = RestClient.post('http://0.0.0.0:8253/go/api/pipelines/new_pipeline/schedule', {}, {'Confirm' => true})
+        expect(response.code).to eq(202)
+
+        with_retries(max_tries: 5, base_sleep_seconds: 20, max_sleep_seconds: 20, handler: retry_handler, rescue: RestClient::Exception) {
+          response = RestClient.get "http://0.0.0.0:8253/go/api/stages/new_pipeline/stage1/instance/#{index+1}/1"
+          result = JSON.parse(response)["result"]
+          raise RestClient::Exception unless result.eql?('Passed')
+        }
+
+        container.stop
+        container.delete
+      end
+    end
   end
 
   def pipeline_configuration
@@ -204,91 +202,6 @@ describe :functionality do
                     jobs: [
                         {
                             name: 'job0',
-                            resources: ['foo0'],
-                            tasks: [
-                                {
-                                    type: 'exec',
-                                    attributes: {
-                                        command: 'ls'
-                                    }
-                                }
-                            ]
-                        },
-                        {
-                            name: 'job1',
-                            resources: ['foo1'],
-                            tasks: [
-                                {
-                                    type: 'exec',
-                                    attributes: {
-                                        command: 'ls'
-                                    }
-                                }
-                            ]
-                        },
-                        {
-                            name: 'job2',
-                            resources: ['foo2'],
-                            tasks: [
-                                {
-                                    type: 'exec',
-                                    attributes: {
-                                        command: 'ls'
-                                    }
-                                }
-                            ]
-                        },
-                        {
-                            name: 'job3',
-                            resources: ['foo3'],
-                            tasks: [
-                                {
-                                    type: 'exec',
-                                    attributes: {
-                                        command: 'ls'
-                                    }
-                                }
-                            ]
-                        },
-                        {
-                            name: 'job4',
-                            resources: ['foo4'],
-                            tasks: [
-                                {
-                                    type: 'exec',
-                                    attributes: {
-                                        command: 'ls'
-                                    }
-                                }
-                            ]
-                        },
-                        {
-                            name: 'job5',
-                            resources: ['foo5'],
-                            tasks: [
-                                {
-                                    type: 'exec',
-                                    attributes: {
-                                        command: 'ls'
-                                    }
-                                }
-                            ]
-                        },
-                        {
-                            name: 'job6',
-                            resources: ['foo6'],
-                            tasks: [
-                                {
-                                    type: 'exec',
-                                    attributes: {
-                                        command: 'ls'
-                                    }
-                                }
-                            ]
-                        },
-                        {
-                            name: 'job7',
-                            resources: ['foo7'],
                             tasks: [
                                 {
                                     type: 'exec',
