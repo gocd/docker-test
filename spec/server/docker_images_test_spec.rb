@@ -156,6 +156,7 @@ describe :functionality do
       expect(response.code).to eq(200)
 
       agent_images = @all_images.select { |i| i.info['RepoTags'].to_s.include? "gocd-agent" }
+      puts "The agents:  #{agent_images}"
       @containers = []
       agent_images.each_with_index do |image, index|
         @containers << Docker::Container.create('Image' => image.id, 'Env' => ["GO_SERVER_URL=#{@go_server_url}", "AGENT_AUTO_REGISTER_KEY=041b5c7e-dab2-11e5-a908-13f95f3c6ef6", "AGENT_AUTO_REGISTER_HOSTNAME=host-#{index}"])
