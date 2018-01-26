@@ -1,5 +1,5 @@
 ##########################################################################
-# Copyright 2017 ThoughtWorks, Inc.
+# Copyright 2018 ThoughtWorks, Inc.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -138,7 +138,7 @@ describe :functionality do
 
   describe 'user provided plugins' do
     it 'should list the plugins provided by user' do
-      response = RestClient.get 'http://0.0.0.0:8253/go/api/admin/plugin_info', {'Accept' => 'application/vnd.go.cd.v2+json'}
+      response = RestClient.get 'http://0.0.0.0:8253/go/api/admin/plugin_info', {'Accept' => 'application/vnd.go.cd.v3+json'}
       plugin_infos = JSON.parse(response)["_embedded"]["plugin_info"]
 
       plugin_ids = plugin_infos.map() { |plugin_info| plugin_info["id"] }
@@ -149,7 +149,7 @@ describe :functionality do
 
   describe 'work assignment and completion' do
     before :all do
-      headers={accept: 'application/vnd.go.cd.v3+json', content_type: 'application/json'}
+      headers={accept: 'application/vnd.go.cd.v5+json', content_type: 'application/json'}
       data = pipeline_configuration
       response = RestClient.post('http://0.0.0.0:8253/go/api/admin/pipelines', data.to_json, headers)
 
@@ -161,13 +161,14 @@ describe :functionality do
       agent_images.each_with_index do |image, index|
         @containers << Docker::Container.create('Image' => image.id, 'Env' => ["GO_SERVER_URL=#{@go_server_url}", "AGENT_AUTO_REGISTER_KEY=041b5c7e-dab2-11e5-a908-13f95f3c6ef6", "AGENT_AUTO_REGISTER_HOSTNAME=host-#{index}"])
       end
+
+      response = RestClient.post('http://0.0.0.0:8253/go/api/pipelines/new_pipeline/unpause', {}, {'Confirm' => true})
+      expect(response.code).to eq(200)
     end
 
     it 'should run the build on all agents' do
       @containers.each_with_index do |container, index|
         container.start
-        response = RestClient.post('http://0.0.0.0:8253/go/api/pipelines/new_pipeline/unpause', {}, {'Confirm' => true})
-        expect(response.code).to eq(200)
 
         response = RestClient.post('http://0.0.0.0:8253/go/api/pipelines/new_pipeline/schedule', {}, {'Confirm' => true})
         expect(response.code).to eq(202)
