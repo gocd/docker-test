@@ -169,7 +169,8 @@ describe :functionality do
     it 'should run the build on all agents' do
       @containers.each_with_index do |container, index|
         container.start
-
+        agent_desc = container.json['Config']['Labels']['description']
+        puts "Agent: #{agent_desc}"
         response = RestClient.post('http://0.0.0.0:8253/go/api/pipelines/new_pipeline/schedule', {}, {'Confirm' => true})
         expect(response.code).to eq(202)
 
