@@ -43,6 +43,8 @@ describe :server do
     end
 
     it 'should have /godata and /go-working-dir' do
+      response = @container.json
+      p response
       response = @container.exec(['ls'])
       result = response[0][0]
       exit_code = response[2]

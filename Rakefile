@@ -29,7 +29,7 @@ task :pull_down_images do
 end
 
 task :clean do
-  sh('docker stop $(docker ps -aq); docker rm $(docker ps -aq); docker rmi -f $(docker images -q); true')
+  # sh('docker stop $(docker ps -aq); docker rm $(docker ps -aq); docker rmi -f $(docker images -q); true')
 end
 
 task :default => [:pull_down_images] do
