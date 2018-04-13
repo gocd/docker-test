@@ -41,17 +41,6 @@ describe :server do
 
       expect(response['NetworkSettings']['Ports']).to eq({'8153/tcp' => nil, '8154/tcp' => nil})
     end
-
-    it 'should have /godata and /go-working-dir' do
-      verify_go_server_is_up
-      response = @container.exec(['ls'])
-      result = response[0][0]
-      exit_code = response[2]
-
-      expect(exit_code).to eq(0)
-      expect(result).to include("go-working-dir")
-      expect(result).to include("godata")
-    end
   end
 
   describe 'port mapping and volume mounts' do
@@ -69,6 +58,16 @@ describe :server do
       @container.stop
       @container.delete
       fail 'Failed to cleanup tmp directory' unless system('sudo rm -rf ./tmp')
+    end
+
+    it 'should have /godata and /go-working-dir' do
+      response = @container.exec(['ls'])
+      result = response[0][0]
+      exit_code = response[2]
+
+      expect(exit_code).to eq(0)
+      expect(result).to include("go-working-dir")
+      expect(result).to include("godata")
     end
 
     it 'should make the go-server available on host\'s 8253 port' do
