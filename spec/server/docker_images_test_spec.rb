@@ -138,7 +138,7 @@ describe :functionality do
 
   describe 'user provided plugins' do
     it 'should list the plugins provided by user' do
-      response = RestClient.get 'http://0.0.0.0:8253/go/api/admin/plugin_info', {'Accept' => 'application/vnd.go.cd.v3+json'}
+      response = RestClient.get 'http://0.0.0.0:8253/go/api/admin/plugin_info', {'Accept' => 'application/vnd.go.cd.v4+json'}
       plugin_infos = JSON.parse(response)["_embedded"]["plugin_info"]
 
       plugin_ids = plugin_infos.map() { |plugin_info| plugin_info["id"] }
