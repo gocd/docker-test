@@ -33,6 +33,10 @@ class Docker
     end
     ConsoleLogger.info "Docker config.json file is successfully created."
   end
+
+  def self.logout
+    FileUtils.rm_r "#{Dir.home}/.docker"
+  end
 end
 
 class Environment
