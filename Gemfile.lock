@@ -8,6 +8,8 @@ GEM
     domain_name (0.5.20170223)
       unf (>= 0.0.5, < 1.0.0)
     excon (0.55.0)
+    fileutils (1.1.0)
+    git (1.5.0)
     http-cookie (1.0.3)
       domain_name (~> 0.5)
     json (2.0.3)
@@ -40,13 +42,17 @@ GEM
 
 PLATFORMS
   ruby
+  x86_64-darwin-17
 
 DEPENDENCIES
   docker-api
+  fileutils
+  git
+  json
   rake
   rest-client
   retries
   rspec (~> 3.5)
 
 BUNDLED WITH
-   1.14.6
+   1.16.3
