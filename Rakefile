@@ -3,7 +3,8 @@ require 'git'
 require './helper'
 
 TOKEN = ENV['TOKEN']
-WORKING_DIR = Dir.mktmpdir(nil, '/tmp')
+ORIGINAL_DIR = Dir.getwd
+TMP_WORKING_DIR = Dir.mktmpdir(nil, '/tmp')
 GOCD_GIT_SHA = versionFile('git_sha')
 GOCD_VERSION = ENV['GOCD_VERSION'] || versionFile('go_version')
 GOCD_FULL_VERSION = ENV['GOCD_FULL_VERSION'] || versionFile('go_full_version')
@@ -14,7 +15,7 @@ IMAGES_TO_PULL = ['gocd-server', 'gocd-agent-alpine-3.5', 'gocd-agent-alpine-3.6
 
 task :publish_experimental do
   begin
-    ConsoleLogger.info "Working directory is #{WORKING_DIR}"
+    ConsoleLogger.info "Working directory is #{TMP_WORKING_DIR}"
 
     Docker.login
     env_as_string = Environment.env("GOCD_VERSION", GOCD_VERSION)
@@ -26,10 +27,10 @@ task :publish_experimental do
 
     ['docker-gocd-server', 'docker-gocd-agent'].each do |repo|
       ConsoleLogger.info "Cloning #{repo} repo."
-      Git.clone("#{MIRROR_URL}/#{repo}", repo, :path => WORKING_DIR)
+      Git.clone("#{MIRROR_URL}/#{repo}", repo, :path => TMP_WORKING_DIR)
 
       ConsoleLogger.info "Building experimental image from #{repo}."
-      cd("#{WORKING_DIR}/#{repo}", verbose: true)
+      cd("#{TMP_WORKING_DIR}/#{repo}", verbose: true)
       sh("#{env_as_string} bundle exec rake -f Rakefile docker_push_experimental")
     end
 
@@ -37,7 +38,8 @@ task :publish_experimental do
   rescue => e
     ConsoleLogger.error e
   ensure
-    FileUtils.rm_r WORKING_DIR
+    cd(ORIGINAL_DIR)
+    FileUtils.rm_r TMP_WORKING_DIR
   end
 end
 
