@@ -33,6 +33,10 @@ class Docker
     end
     ConsoleLogger.info "Docker config.json file is successfully created."
   end
+
+  def self.logout
+    sh("docker logout")
+  end
 end
 
 class Environment

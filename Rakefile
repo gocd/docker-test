@@ -11,7 +11,7 @@ GOCD_FULL_VERSION = ENV['GOCD_FULL_VERSION'] || versionFile('go_full_version')
 MIRROR_URL = ENV['MIRROR_URL'] || 'https://git.gocd.io/git/gocd'
 GOCD_SERVER_DOWNLOAD_URL = "https://download.gocd.org/experimental/binaries/#{GOCD_FULL_VERSION}/generic/go-server-#{GOCD_FULL_VERSION}.zip"
 GOCD_AGENT_DOWNLOAD_URL = "https://download.gocd.org/experimental/binaries/#{GOCD_FULL_VERSION}/generic/go-agent-#{GOCD_FULL_VERSION}.zip"
-IMAGES_TO_PULL = ['gocd-server', 'gocd-agent-alpine-3.5', 'gocd-agent-alpine-3.6', 'gocd-agent-alpine-3.7', 'gocd-agent-centos-6', 'gocd-agent-centos-7', 'gocd-agent-debian-8', 'gocd-agent-debian-9', 'gocd-agent-docker-dind', 'gocd-agent-ubuntu-12.04', 'gocd-agent-ubuntu-14.04', 'gocd-agent-ubuntu-16.04']
+DOCKER_IMAGES = ['gocd-server', 'gocd-agent-alpine-3.5', 'gocd-agent-alpine-3.6', 'gocd-agent-alpine-3.7', 'gocd-agent-centos-6', 'gocd-agent-centos-7', 'gocd-agent-debian-8', 'gocd-agent-debian-9', 'gocd-agent-docker-dind', 'gocd-agent-ubuntu-12.04', 'gocd-agent-ubuntu-14.04', 'gocd-agent-ubuntu-16.04']
 
 task :publish_experimental do
   begin
@@ -39,6 +39,7 @@ task :publish_experimental do
     ConsoleLogger.error e
   ensure
     cd(ORIGINAL_DIR)
+    Docker.logout
     FileUtils.rm_r TMP_WORKING_DIR
   end
 end
@@ -57,19 +58,22 @@ end
 task :pull_down_images do
   ConsoleLogger.info "Pulling server and agents images."
   org = ENV['EXP_ORG'] || 'gocdexperimental'
-  IMAGES_TO_PULL.each do |image|
-    sh("docker pull #{org}/#{image}:v#{tag}")
+  DOCKER_IMAGES.each do |image|
+    sh("docker pull #{org}/#{image}:v#{GOCD_FULL_VERSION}")
   end
 end
 
 task :clean do
-  IMAGES_TO_PULL.each do |image|
-    sh("docker rmi -f #{org}/#{image}:v#{tag}")
+  Docker.logout
+  org = ENV['EXP_ORG'] || 'gocdexperimental'
+  DOCKER_IMAGES.each do |image|
+    sh("docker rmi -f #{org}/#{image}:v#{GOCD_FULL_VERSION}")
   end
 end
 
 task :default => [:pull_down_images] do
   begin
+    Docker.login
     Rake::Task['unit'].invoke
   rescue => e
     ConsoleLogger.error e
