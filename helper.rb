@@ -16,7 +16,7 @@ class ConsoleLogger
 end
 
 def versionFile(key)
-  version_file_location = ENV["VERSION_FILE_LOCATION"] || '..version.json'
+  version_file_location = ENV["VERSION_FILE_LOCATION"] || 'version.json'
   ConsoleLogger.info "Reading #{key} from file #{version_file_location}."
   value = JSON.parse(File.read(version_file_location))[key]
   ConsoleLogger.info "Detected value for #{key} is #{value}."
