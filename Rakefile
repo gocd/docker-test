@@ -11,7 +11,7 @@ GOCD_FULL_VERSION = ENV['GOCD_FULL_VERSION'] || versionFile('go_full_version')
 MIRROR_URL = ENV['MIRROR_URL'] || 'https://git.gocd.io/git/gocd'
 GOCD_SERVER_DOWNLOAD_URL = "https://download.gocd.org/experimental/binaries/#{GOCD_FULL_VERSION}/generic/go-server-#{GOCD_FULL_VERSION}.zip"
 GOCD_AGENT_DOWNLOAD_URL = "https://download.gocd.org/experimental/binaries/#{GOCD_FULL_VERSION}/generic/go-agent-#{GOCD_FULL_VERSION}.zip"
-DOCKER_IMAGES = ['gocd-server', 'gocd-agent-alpine-3.5', 'gocd-agent-alpine-3.6', 'gocd-agent-alpine-3.7', 'gocd-agent-centos-6', 'gocd-agent-centos-7', 'gocd-agent-debian-8', 'gocd-agent-debian-9', 'gocd-agent-docker-dind', 'gocd-agent-ubuntu-12.04', 'gocd-agent-ubuntu-14.04', 'gocd-agent-ubuntu-16.04']
+AGENT_DOCKER_IMAGES = ['gocd-agent-alpine-3.5', 'gocd-agent-alpine-3.6', 'gocd-agent-alpine-3.7', 'gocd-agent-centos-6', 'gocd-agent-centos-7', 'gocd-agent-debian-8', 'gocd-agent-debian-9', 'gocd-agent-docker-dind', 'gocd-agent-ubuntu-12.04', 'gocd-agent-ubuntu-14.04', 'gocd-agent-ubuntu-16.04']
 
 task :publish_experimental do
   begin
@@ -55,26 +55,34 @@ RSpec::Core::RakeTask.new(:unit) do |t|
   end.join(' ')
 end
 
-task :pull_down_images do
-  ConsoleLogger.info "Pulling server and agents images."
+task :pull_down_image, [:image] do |task, args|
+  ConsoleLogger.info "Pulling image #{args[:image]}."
   org = ENV['EXP_ORG'] || 'gocdexperimental'
-  DOCKER_IMAGES.each do |image|
-    sh("docker pull #{org}/#{image}:v#{GOCD_FULL_VERSION}")
-  end
+  sh("docker pull #{org}/#{args[:image]}:v#{GOCD_FULL_VERSION}")
 end
 
 task :clean do
   Docker.logout
   org = ENV['EXP_ORG'] || 'gocdexperimental'
-  DOCKER_IMAGES.each do |image|
+  AGENT_DOCKER_IMAGES.each do |image|
     sh("docker rmi -f #{org}/#{image}:v#{GOCD_FULL_VERSION}")
   end
 end
 
-task :default => [:pull_down_images] do
+task :remove_image, [:image_to_remove] do |task, args|
+  org = ENV['EXP_ORG'] || 'gocdexperimental'
+  sh("docker rmi -f #{org}/#{args[:image_to_remove]}:v#{GOCD_FULL_VERSION}")
+end
+
+task :default do
   begin
     Docker.login
-    Rake::Task['unit'].invoke
+    Rake::Task[:pull_down_image].execute :image => 'gocd-server'
+    AGENT_DOCKER_IMAGES.each do |image|
+      Rake::Task[:pull_down_image].execute :image => image
+      Rake::Task[:unit].execute
+      Rake::Task[:remove_image].execute :image_to_remove => image
+    end
   rescue => e
     ConsoleLogger.error e
   ensure

@@ -35,7 +35,11 @@ class Docker
   end
 
   def self.logout
-    FileUtils.rm_r "#{Dir.home}/.docker"
+    begin
+      FileUtils.rm_r "#{Dir.home}/.docker"
+    rescue => e
+      ConsoleLogger.warn e
+    end
   end
 end
 
