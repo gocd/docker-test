@@ -35,8 +35,6 @@ task :publish_experimental do
     end
 
     ConsoleLogger.info "Done."
-  rescue => e
-    ConsoleLogger.error e
   ensure
     cd(ORIGINAL_DIR)
     Docker.logout
