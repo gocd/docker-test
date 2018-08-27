@@ -72,7 +72,7 @@ describe :server do
 
     it 'should make the go-server available on host\'s 8253 port' do
       response = ''
-      with_retries(max_tries: 10, base_sleep_seconds: 10, max_sleep_seconds: 10, handler: retry_handler) {
+        with_retries(max_tries: 10, base_sleep_seconds: 10, max_sleep_seconds: 10, handler: retry_handler) {
         response = RestClient.get 'http://0.0.0.0:8253/go'
       }
       expect(response.code).to eq(200)
@@ -162,8 +162,12 @@ describe :functionality do
         @containers << Docker::Container.create('Image' => image.id, 'Env' => ["GO_SERVER_URL=#{@go_server_url}", "AGENT_AUTO_REGISTER_KEY=041b5c7e-dab2-11e5-a908-13f95f3c6ef6", "AGENT_AUTO_REGISTER_HOSTNAME=host-#{index}"])
       end
 
-      response = RestClient.post('http://0.0.0.0:8253/go/api/pipelines/new_pipeline/unpause', {}, {'Confirm' => true})
-      expect(response.code).to eq(200)
+      # versions of gocd prior to 18.8 would pause a pipeline when it's created, versions later than 18.8 will not
+      # so we just detect if the pipeline is paused before unpausing it
+      if JSON.parse(RestClient.get('http://0.0.0.0:8253/go/api/pipelines/new_pipeline/status').return!.body)['paused']
+        response = RestClient.post('http://0.0.0.0:8253/go/api/pipelines/new_pipeline/unpause', {}, {'X-GoCD-Confirm' => true, 'Accept' => 'application/vnd.go.cd.v1+json'})
+        expect(response.code).to eq(200)
+      end
     end
 
     it 'should run the build on all agents' do
