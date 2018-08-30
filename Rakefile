@@ -13,34 +13,11 @@ GOCD_SERVER_DOWNLOAD_URL = "https://download.gocd.org/experimental/binaries/#{GO
 GOCD_AGENT_DOWNLOAD_URL = "https://download.gocd.org/experimental/binaries/#{GOCD_FULL_VERSION}/generic/go-agent-#{GOCD_FULL_VERSION}.zip"
 AGENT_DOCKER_IMAGES = ['gocd-agent-alpine-3.5', 'gocd-agent-alpine-3.6', 'gocd-agent-alpine-3.7', 'gocd-agent-alpine-3.8', 'gocd-agent-centos-6', 'gocd-agent-centos-7', 'gocd-agent-debian-8', 'gocd-agent-debian-9', 'gocd-agent-docker-dind', 'gocd-agent-ubuntu-12.04', 'gocd-agent-ubuntu-14.04', 'gocd-agent-ubuntu-16.04', 'gocd-agent-ubuntu-18.04']
 
-task :publish_experimental do
-  begin
-    ConsoleLogger.info "Working directory is #{TMP_WORKING_DIR}"
+total_workers = (ENV['GO_JOB_RUN_COUNT'] || '1').to_i
+image_to_test_per_worker = (AGENT_DOCKER_IMAGES.length.to_f / total_workers).ceil
+current_worker_index = (ENV['GO_JOB_RUN_INDEX'] || '1').to_i
+images_to_test = AGENT_DOCKER_IMAGES.each_slice(image_to_test_per_worker).to_a[current_worker_index - 1]
 
-    Docker.login
-    env_as_string = Environment.env("GOCD_VERSION", GOCD_VERSION)
-                        .env("GOCD_GIT_SHA", GOCD_GIT_SHA)
-                        .env("GOCD_FULL_VERSION", GOCD_FULL_VERSION)
-                        .env("GOCD_SERVER_DOWNLOAD_URL", GOCD_SERVER_DOWNLOAD_URL)
-                        .env("GOCD_AGENT_DOWNLOAD_URL", GOCD_AGENT_DOWNLOAD_URL)
-                        .to_s
-
-    ['docker-gocd-server', 'docker-gocd-agent'].each do |repo|
-      ConsoleLogger.info "Cloning #{repo} repo."
-      Git.clone("#{MIRROR_URL}/#{repo}", repo, :path => TMP_WORKING_DIR)
-
-      ConsoleLogger.info "Building experimental image from #{repo}."
-      cd("#{TMP_WORKING_DIR}/#{repo}", verbose: true)
-      sh("#{env_as_string} bundle exec rake -f Rakefile docker_push_experimental")
-    end
-
-    ConsoleLogger.info "Done."
-  ensure
-    cd(ORIGINAL_DIR)
-    Docker.logout
-    FileUtils.rm_r TMP_WORKING_DIR
-  end
-end
 
 desc 'Run Rspec tests (spec/*_spec.rb)'
 RSpec::Core::RakeTask.new(:unit) do |t|
@@ -76,7 +53,7 @@ task :default do
   begin
     Docker.login
     Rake::Task[:pull_down_image].execute :image => 'gocd-server'
-    AGENT_DOCKER_IMAGES.each do |image|
+    images_to_test.each do |image|
       Rake::Task[:pull_down_image].execute :image => image
       Rake::Task[:unit].execute
       Rake::Task[:remove_image].execute :image_to_remove => image
