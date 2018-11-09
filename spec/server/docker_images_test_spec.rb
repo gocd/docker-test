@@ -175,8 +175,11 @@ describe :functionality do
         container.start
         agent_desc = container.json['Config']['Labels']['description']
         puts "Agent: #{agent_desc}"
-        response = RestClient.post('http://0.0.0.0:8253/go/api/pipelines/new_pipeline/schedule', {}, {'X-GoCD-Confirm' => true, 'Accept' => 'application/vnd.go.cd.v1+json'})
-        expect(response.code).to eq(202)
+        # pipelines get automatically scheduled after creation as they are no longer paused. Check the status before calling the schedule API
+        if JSON.parse(RestClient.get('http://0.0.0.0:8253/go/api/pipelines/new_pipeline/status').return!.body)['schedulable']
+            response = RestClient.post('http://0.0.0.0:8253/go/api/pipelines/new_pipeline/schedule', {}, {'X-GoCD-Confirm' => true, 'Accept' => 'application/vnd.go.cd.v1+json'})
+            expect(response.code).to eq(202)
+        end
 
         with_retries(max_tries: 5, base_sleep_seconds: 20, max_sleep_seconds: 20, handler: retry_handler, rescue: RestClient::Exception) {
           response = RestClient.get "http://0.0.0.0:8253/go/api/stages/new_pipeline/stage1/instance/#{index+1}/1"
