@@ -81,7 +81,7 @@ describe :server do
     it 'should start the go-server with given configuration' do
       response = ''
       with_retries(max_tries: 10, base_sleep_seconds: 10, max_sleep_seconds: 10, handler: retry_handler) {
-        response = RestClient.get('http://0.0.0.0:8253/go/api/admin/pipelines/up42', {'Accept' => 'application/vnd.go.cd.v5+json'})
+        response = RestClient.get('http://0.0.0.0:8253/go/api/admin/pipelines/up42', {'Accept' => 'application/vnd.go.cd.v6+json'})
       }
 
       expect(response.code).to eq(200)
@@ -149,7 +149,7 @@ describe :functionality do
 
   describe 'work assignment and completion' do
     before :all do
-      headers={accept: 'application/vnd.go.cd.v5+json', content_type: 'application/json'}
+      headers={accept: 'application/vnd.go.cd.v6+json', content_type: 'application/json'}
       data = pipeline_configuration
       response = RestClient.post('http://0.0.0.0:8253/go/api/admin/pipelines', data.to_json, headers)
 
