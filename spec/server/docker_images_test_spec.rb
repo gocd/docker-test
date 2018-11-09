@@ -175,8 +175,7 @@ describe :functionality do
         container.start
         agent_desc = container.json['Config']['Labels']['description']
         puts "Agent: #{agent_desc}"
-        headers={accept: 'application/vnd.go.cd.v1+json', content_type: 'application/json'}
-        response = RestClient.post('http://0.0.0.0:8253/go/api/pipelines/new_pipeline/schedule', {}, headers)
+        response = RestClient.post('http://0.0.0.0:8253/go/api/pipelines/new_pipeline/schedule', {}, {'X-GoCD-Confirm' => true, 'Accept' => 'application/vnd.go.cd.v1+json'})
         expect(response.code).to eq(202)
 
         with_retries(max_tries: 5, base_sleep_seconds: 20, max_sleep_seconds: 20, handler: retry_handler, rescue: RestClient::Exception) {
