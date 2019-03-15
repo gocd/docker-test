@@ -9,7 +9,7 @@ GoCD.script {
         TOKEN: 'AES:xCrEdvPdvCRL0C7LJzgqnw==:ziiRL2A7a/dfWkecgzxp4Eea01eN5efqGPru4pe4zplzrtsOPy6JiZBy1KOKLxETwGDwltNMo/eg0ohJ3FLVHA==',
       ]
       materials {
-        git {
+        git('docker-repo') {
           branch = 'master'
           destination = 'docker-test'
           shallowClone = false
@@ -19,19 +19,19 @@ GoCD.script {
           pipeline = 'code-sign'
           stage = 'metadata'
         }
-        git {
+        git('docker-gocd-server') {
           branch = 'master'
           destination = 'docker-gocd-server'
           shallowClone = false
           url = 'https://git.gocd.io/git/gocd/docker-gocd-server'
         }
-        git {
+        git('docker-gocd-server-centos-7') {
           branch = 'master'
           destination = 'docker-gocd-server-centos-7'
           shallowClone = false
           url = 'https://git.gocd.io/git/gocd/docker-gocd-server-centos-7'
         }
-        git {
+        git('docker-gocd-agent') {
           branch = 'master'
           destination = 'docker-gocd-agent'
           shallowClone = false
