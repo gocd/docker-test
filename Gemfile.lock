@@ -7,7 +7,7 @@ GEM
       multi_json
     domain_name (0.5.20180417)
       unf (>= 0.0.5, < 1.0.0)
-    excon (0.62.0)
+    excon (0.71.0)
     fileutils (1.1.0)
     git (1.5.0)
     http-cookie (1.0.3)
